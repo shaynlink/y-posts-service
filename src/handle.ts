@@ -303,7 +303,48 @@ export function setUpHandle(handle: HTTPHandle) {
         return handle.createResponse(req, res, null, new ErrorResponse('Unable to unlike post', 500));
       }
     })
+    // un feed est une liste de post. il existe plusieurs type de feed (all post, following feed, user feed, custom list of user feed, etc...)
+    //get/feed
+    route.mapper.get('/feed', async (req, res) => {
+      try {
+        const posts = await Post
+          .find()
+          .select({ _id: 1, user: 1 ,content: 1, images: 1, timestamp: 1, likes: 1, reposts: 1})
+          .populate('user', { _id: 1, username: 1 })
+          .exec();
+
+        return handle.createResponse(req, res, posts, null);
+      } catch (error) {
+        console.error(error);
+        return handle.createResponse(req, res, null, new ErrorResponse('Unable to get feed', 500));
+      }
+    })
     
+    // on peut creer un custom feed en fontion du parametre qui redirige vers une list de user id
+    //post/feed
+    route.mapper.post('/feed', async (req, res) => {
+      try {
+        if (!req.body.userIds) {
+          return handle.createResponse(req, res, null, new ErrorResponse('Missing body userIds', 401));
+        }
+
+        if (!Array.isArray(req.body.userIds)) {
+          return handle.createResponse(req, res, null, new ErrorResponse('Invalid body userIds', 401));
+        }
+
+        const posts = await Post
+          .find({ user: { $in: req.body.userIds } })
+          .select({ _id: 1, user: 1 ,content: 1, images: 1, timestamp: 1, likes: 1, reposts: 1})
+          .populate('user', { _id: 1, username: 1 })
+          .exec();
+
+        return handle.createResponse(req, res, posts, null);
+      } catch (error) {
+        console.error(error);
+        return handle.createResponse(req, res, null, new ErrorResponse('Unable to get feed', 500));
+      }
+    })
+
   })
 
   handle.initiateNotFoundRoute();
