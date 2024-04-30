@@ -118,7 +118,7 @@ export function setUpHandle(handle: HTTPHandle) {
         const post = new Post({
           user: res.locals.userId,
           content: req.body.content,
-          image: req.body.image || []
+          images: req.body.images || []
         });
 
         await post.save();
@@ -144,7 +144,7 @@ export function setUpHandle(handle: HTTPHandle) {
 
         const postDoc = await Post
           .findById(id)
-          .select({ _id: 1, user: 1 ,content: 1, timestamp: 1, likes: 1, reposts: 1})
+          .select({ _id: 1, user: 1 ,content: 1, images:1, timestamp: 1, likes: 1, reposts: 1})
           .populate('user', { _id: 1, username: 1 })
           .exec() as unknown as typeof PostSchema & { _doc: IPost & { _id: ObjectId } };
 
@@ -206,7 +206,7 @@ export function setUpHandle(handle: HTTPHandle) {
 
         const postDoc = await Post
           .findById(id)
-          .select({ _id: 1, user: 1 ,content: 1, timestamp: 1, likes: 1, reposts: 1})
+          .select({ _id: 1, user: 1 ,content: 1, images:1, timestamp: 1, likes: 1, reposts: 1})
           .populate('user', { _id: 1, username: 1 })
           .exec() as unknown as Query<IPost, Document<IPost>> & { _doc: IPost & { _id: ObjectId } };
 
@@ -217,7 +217,7 @@ export function setUpHandle(handle: HTTPHandle) {
         const repost = new Post({
           user: res.locals.userId,
           content: (await postDoc).content,
-          image: (await postDoc).image,
+          images: (await postDoc).images,
           reposts: [postDoc._doc._id]
         });
 
@@ -244,7 +244,7 @@ export function setUpHandle(handle: HTTPHandle) {
 
         const postDoc = await Post
           .findById(id)
-          .select({ _id: 1, user: 1 ,content: 1, timestamp: 1, likes: 1, reposts: 1})
+          .select({ _id: 1, user: 1 ,content: 1, images: 1, timestamp: 1, likes: 1, reposts: 1})
           .populate('user', { _id: 1, username: 1 })
           .exec()
 
@@ -266,6 +266,7 @@ export function setUpHandle(handle: HTTPHandle) {
         return handle.createResponse(req, res, null, new ErrorResponse('Unable to like post', 500));
       }
     })
+
     route.mapper.delete('/:id/like', async (req, res) => {
       try {
         if (!req.params.id) {
@@ -280,7 +281,7 @@ export function setUpHandle(handle: HTTPHandle) {
 
         const postDoc = await Post
           .findById(id)
-          .select({ _id: 1, user: 1 ,content: 1, timestamp: 1, likes: 1, reposts: 1})
+          .select({ _id: 1, user: 1 ,content: 1, images: 1, timestamp: 1, likes: 1, reposts: 1})
           .populate('user', { _id: 1, username: 1 })
           .exec();
 

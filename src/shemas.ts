@@ -4,7 +4,7 @@ export interface IPost {
   id: Schema.Types.ObjectId;
   user: Schema.Types.ObjectId;
   content: string;
-  image: string[];
+  images: string[];
   timestamp: Date;
   likes : Schema.Types.ObjectId[];
   reposts: Schema.Types.ObjectId[];
@@ -30,7 +30,7 @@ export const PostSchema = new Schema<IPost>({
     type: String,
     required: true,
   },
-  image: {
+  images: {
     type: [String],
     required: false,
   },

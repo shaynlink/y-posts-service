@@ -24,7 +24,7 @@ async function bootstrap() {
   const client = await core.DBService.createClient();
 
   const Post = client.model<IPost, PostModel>('Posts', PostSchema);
-  const User = client.model<IUser, UserModel>('User', UserSchema);
+  const User = client.model<IUser, UserModel>('Users', UserSchema);
 
   const handle = core.HTTPService.handle;
   handle.app.locals.schema = {
