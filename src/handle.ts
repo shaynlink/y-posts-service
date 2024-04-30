@@ -1,16 +1,16 @@
 import { ErrorResponse, HTTPHandle, Route } from 'codebase'
-import type { Model, ObjectId } from 'mongoose'
-import { FollowInjuctionSchema, IUser, UserSchema } from './shemas'
+import type { Model, ObjectId, Query } from 'mongoose'
+import { IPost, IUser, PostSchema } from './shemas'
 import pkg from '../package.json'
 import axios from 'axios'
 import { AuthorizationVerifyResponse } from 'y-types/service'
-import { Types, isValidObjectId } from 'mongoose'
+import { Types, isValidObjectId, Document } from 'mongoose'
 
 export function setUpHandle(handle: HTTPHandle) {
   handle.initiateHealthCheckRoute(pkg.version);
 
+  const Post: Model<IPost> = handle.app.locals.schema.Post;
   const User: Model<IUser> = handle.app.locals.schema.User;
-  const FollowInjuction: Model<typeof FollowInjuctionSchema> = handle.app.locals.schema.FollowInjuction;
 
   handle.createRoute('/',(route: Route) => {
     route.setGlobalMiddleware('Verify jwt token', async (req, res, next) => {
@@ -109,98 +109,24 @@ export function setUpHandle(handle: HTTPHandle) {
       next();
     })
 
-    route.mapper.route('/me')
-      .get(async (req, res) => {
+    route.mapper.post('', async (req, res) => {
       try {
-        const userDoc = await User
-          .findById(res.locals.userId)
-          .select({ _id: 1, username: 1, email: 1 })
-          .exec() as unknown as typeof UserSchema & { _doc: IUser };
-
-        if (!userDoc) {
-          return handle.createResponse(req, res, null, new ErrorResponse('User not found', 404));
+        if (!req.body.content) {
+          return handle.createResponse(req, res, null, new ErrorResponse('Missing body content', 401));
         }
 
-        const following = await FollowInjuction
-          .countDocuments({ source: res.locals.userId })
-          .exec();
-        
-        const followers = await FollowInjuction
-          .countDocuments({ target: res.locals.userId })
-          .exec();
+        const post = new Post({
+          user: res.locals.userId,
+          content: req.body.content,
+          image: req.body.image || []
+        });
 
-        const user = {
-          ...userDoc._doc,
-          following,
-          followers
-        }
+        await post.save();
 
-        return handle.createResponse(req, res, user, null);
+        return handle.createResponse(req, res, post, null);
       } catch (error) {
         console.error(error);
-        return handle.createResponse(req, res, null, new ErrorResponse('Unable to get user', 500));
-      }
-      });
-
-    route.mapper.get('/me/following', async (req, res) => {
-      try {
-        if (!req.query.limit) {
-          return handle.createResponse(req, res, null, new ErrorResponse('Missing query limit', 400));
-        }
-
-        if (!req.query.page) {
-          return handle.createResponse(req, res, null, new ErrorResponse('Missing query page', 400));
-        }
-
-        const skip = parseInt(req.query.page as string) - 1 * parseInt(req.query.limit as string);
-
-        const followInjuctions = await FollowInjuction
-          .find({ source: res.locals.userId })
-          .select({ _id: 1, target: 1 })
-          .skip(skip)
-          .limit(parseInt(req.query.limit as string))
-          .exec() as unknown as typeof FollowInjuctionSchema & { target: Types.ObjectId }[];
-
-        const users = await User
-          .find({ _id: { $in: followInjuctions.map(({ target }) => target) } })
-          .select({ _id: 1, username: 1 })
-          .exec() as unknown as typeof UserSchema[];
-
-        return handle.createResponse(req, res, users, null);
-      } catch (error) {
-        console.error(error);
-        return handle.createResponse(req, res, null, new ErrorResponse('Unable to get following users', 500));
-      }
-    })
-
-    route.mapper.get('/me/followers', async (req, res) => {
-      try {
-        if (!req.query.limit) {
-          return handle.createResponse(req, res, null, new ErrorResponse('Missing query limit', 400));
-        }
-
-        if (!req.query.page) {
-          return handle.createResponse(req, res, null, new ErrorResponse('Missing query page', 400));
-        }
-
-        const skip = parseInt(req.query.page as string) - 1 * parseInt(req.query.limit as string);
-
-        const followInjuctions = await FollowInjuction
-          .find({ target: res.locals.userId })
-          .select({ source: 1 })
-          .skip(skip)
-          .limit(parseInt(req.query.limit as string))
-          .exec() as unknown as { source: Types.ObjectId }[];
-
-        const users = await User
-          .find({ _id: { $in: followInjuctions.map(({ source }) => source) } })
-          .select({ _id: 1, username: 1 })
-          .exec() as unknown as typeof UserSchema[];
-
-        return handle.createResponse(req, res, users, null);
-      } catch (error) {
-        console.error(error);
-        return handle.createResponse(req, res, null, new ErrorResponse('Unable to get followers users', 500));
+        return handle.createResponse(req, res, null, new ErrorResponse('Unable to create post', 500));
       }
     })
 
@@ -216,188 +142,167 @@ export function setUpHandle(handle: HTTPHandle) {
 
         const id = Types.ObjectId.createFromHexString(req.params.id);
 
-        const userDoc = await User
+        const postDoc = await Post
           .findById(id)
-          .select({ _id: 1, username: 1 })
-          .exec() as unknown as typeof UserSchema & { _doc: IUser & { _id: ObjectId } };
+          .select({ _id: 1, user: 1 ,content: 1, timestamp: 1, likes: 1, reposts: 1})
+          .populate('user', { _id: 1, username: 1 })
+          .exec() as unknown as typeof PostSchema & { _doc: IPost & { _id: ObjectId } };
 
-        const following = await FollowInjuction
-          .countDocuments({ source: userDoc._doc._id })
-          .exec();
-        
-        const followers = await FollowInjuction
-          .countDocuments({ target: userDoc._doc._id })
-          .exec();
-
-        const user = {
-          ...userDoc._doc,
-          following,
-          followers
+        const post = {
+          ...postDoc._doc
         }
 
-        return handle.createResponse(req, res, user, null);
+        return handle.createResponse(req, res, post, null);
       } catch (error) {
         console.error(error);
-        return handle.createResponse(req, res, null, new ErrorResponse('Unable to get user', 500));
+        return handle.createResponse(req, res, null, new ErrorResponse('Unable to get post', 500));
       }
     })
 
-    route.mapper.get('/:id/following', async (req, res) => {
+    route.mapper.delete('/:id', async (req, res) => {
       try {
         if (!req.params.id) {
-          return handle.createResponse(req, res, null, new ErrorResponse('Missing params id', 400));
+          return handle.createResponse(req, res, null, new ErrorResponse('Missing params id', 401));
         }
-
+  
         if (!isValidObjectId(req.params.id)) {
           return handle.createResponse(req, res, null, new ErrorResponse('Invalid params id', 401));
         }
 
         const id = Types.ObjectId.createFromHexString(req.params.id);
 
-        if (!req.query.limit) {
-          return handle.createResponse(req, res, null, new ErrorResponse('Missing query limit', 400));
+        const postDoc = await Post
+          .findById(id)
+          .exec() as unknown as Query<IPost, Document<IPost>> & { _doc: IPost & { _id: ObjectId } };
+
+        if (!postDoc) {
+          return handle.createResponse(req, res, null, new ErrorResponse('Post not found', 404));
         }
 
-        if (!req.query.page) {
-          return handle.createResponse(req, res, null, new ErrorResponse('Missing query page', 400));
+        if (!(postDoc as any).user.equals(res.locals.userId)) {
+          return handle.createResponse(req, res, null, new ErrorResponse('Unauthorized user', 401));
         }
 
-        const skip = parseInt(req.query.page as string) - 1 * parseInt(req.query.limit as string);
+        await postDoc.deleteOne()
 
-        const followInjuctions = await FollowInjuction
-          .find({ source: id })
-          .select({ _id: 1, target: 1 })
-          .skip(skip)
-          .limit(parseInt(req.query.limit as string))
-          .exec() as unknown as { target: Types.ObjectId }[];
-
-        console.log(followInjuctions);
-
-        const users = await User
-          .find({ _id: { $in: followInjuctions.map(({ target }) => target) } })
-          .select({ _id: 1, username: 1 })
-          .exec() as unknown as typeof UserSchema[];
-
-        return handle.createResponse(req, res, users, null);
+        return res.status(204).end();
       } catch (error) {
         console.error(error);
-        return handle.createResponse(req, res, null, new ErrorResponse('Unable to get following users', 500));
+        return handle.createResponse(req, res, null, new ErrorResponse('Unable to delete post', 500));
       }
     })
 
-    route.mapper.get('/:id/followers', async (req, res) => {
+    route.mapper.post('/:id/repost', async (req, res) => {
       try {
         if (!req.params.id) {
-          return handle.createResponse(req, res, null, new ErrorResponse('Missing params id', 400));
+          return handle.createResponse(req, res, null, new ErrorResponse('Missing params id', 401));
         }
-
+  
         if (!isValidObjectId(req.params.id)) {
           return handle.createResponse(req, res, null, new ErrorResponse('Invalid params id', 401));
         }
 
         const id = Types.ObjectId.createFromHexString(req.params.id);
 
-        if (!req.query.limit) {
-          return handle.createResponse(req, res, null, new ErrorResponse('Missing query limit', 400));
+        const postDoc = await Post
+          .findById(id)
+          .select({ _id: 1, user: 1 ,content: 1, timestamp: 1, likes: 1, reposts: 1})
+          .populate('user', { _id: 1, username: 1 })
+          .exec() as unknown as Query<IPost, Document<IPost>> & { _doc: IPost & { _id: ObjectId } };
+
+        if (!postDoc) {
+          return handle.createResponse(req, res, null, new ErrorResponse('Post not found', 404));
         }
 
-        if (!req.query.page) {
-          return handle.createResponse(req, res, null, new ErrorResponse('Missing query page', 400));
-        }
+        const repost = new Post({
+          user: res.locals.userId,
+          content: (await postDoc).content,
+          image: (await postDoc).image,
+          reposts: [postDoc._doc._id]
+        });
 
-        const skip = parseInt(req.query.page as string) - 1 * parseInt(req.query.limit as string);
+        await repost.save();
 
-        const followInjuctions = await FollowInjuction
-          .find({ target: id })
-          .select({ source: 1 })
-          .skip(skip)
-          .limit(parseInt(req.query.limit as string))
-          .exec() as unknown as { source: Types.ObjectId }[];
-
-        const users = await User
-          .find({ _id: { $in: followInjuctions.map(({ source }) => source) } })
-          .select({ _id: 1, username: 1 })
-          .exec() as unknown as typeof UserSchema[];
-
-        return handle.createResponse(req, res, users, null);
+        return handle.createResponse(req, res, null, null);
       } catch (error) {
         console.error(error);
-        return handle.createResponse(req, res, null, new ErrorResponse('Unable to get followers users', 500));
+        return handle.createResponse(req, res, null, new ErrorResponse('Unable to repost post', 500));
       }
     })
 
-    route.mapper.route('/:id/follow')
-      .put(async (req, res) => {
-        try {
-          if (!req.params.id) {
-            return handle.createResponse(req, res, null, new ErrorResponse('Missing params id', 401));
-          }
-    
-          if (!isValidObjectId(req.params.id)) {
-            return handle.createResponse(req, res, null, new ErrorResponse('Invalid params id', 401));
-          }
-
-          const id = Types.ObjectId.createFromHexString(req.params.id);
-
-          if (id.equals(res.locals.userId)) {
-            return handle.createResponse(req, res, null, new ErrorResponse('Unable to follow yourself', 400));
-          }
-
-          const user = await User
-            .findById(id)
-            .exec() as unknown as typeof UserSchema & { follow: (userId: Types.ObjectId) => Promise<typeof FollowInjuctionSchema> };
-
-          if (!user) {
-            return handle.createResponse(req, res, null, new ErrorResponse('User not found', 404));
-          }
-
-          const followInjuction = await FollowInjuction
-            .findOne({ source: res.locals.userId, target: id })
-            .exec() as unknown as typeof FollowInjuctionSchema;
-          
-          if (!followInjuction) {
-            await user.follow(res.locals.userId) as unknown as typeof FollowInjuctionSchema;
-            return res.status(204).end();
-          }
-
-          return handle.createResponse(req, res, null, new ErrorResponse('Already following user', 400));
-        } catch (error) {
-          console.error(error);
-          return handle.createResponse(req, res, null, new ErrorResponse('Unable to follow user', 500));
+    route.mapper.put('/:id/like', async (req, res) => {
+      try {
+        if (!req.params.id) {
+          return handle.createResponse(req, res, null, new ErrorResponse('Missing params id', 401));
         }
-      })
-      .delete(async (req, res) => {
-        try {
-          if (!req.params.id) {
-            return handle.createResponse(req, res, null, new ErrorResponse('Missing params id', 401));
-          }
-    
-          if (!isValidObjectId(req.params.id)) {
-            return handle.createResponse(req, res, null, new ErrorResponse('Invalid params id', 401));
-          }
-
-          const id = Types.ObjectId.createFromHexString(req.params.id);
-
-          if (id.equals(res.locals.userId)) {
-            return handle.createResponse(req, res, null, new ErrorResponse('Unable to unfollow yourself', 400));
-          }
-
-          const user = await User
-            .findById(id)
-            .exec() as unknown as typeof UserSchema & { unfollow: (userId: Types.ObjectId) => Promise<void> };
-
-          if (!user) {
-            return handle.createResponse(req, res, null, new ErrorResponse('User not found', 404));
-          }
-
-          await user.unfollow(res.locals.userId);
-
-          return res.status(204).end();
-        } catch (error) {
-          console.error(error);
-          return handle.createResponse(req, res, null, new ErrorResponse('Unable to unfollow user', 500));
+  
+        if (!isValidObjectId(req.params.id)) {
+          return handle.createResponse(req, res, null, new ErrorResponse('Invalid params id', 401));
         }
-      })
+
+        const id = Types.ObjectId.createFromHexString(req.params.id);
+
+        const postDoc = await Post
+          .findById(id)
+          .select({ _id: 1, user: 1 ,content: 1, timestamp: 1, likes: 1, reposts: 1})
+          .populate('user', { _id: 1, username: 1 })
+          .exec()
+
+        if (!postDoc) {
+          return handle.createResponse(req, res, null, new ErrorResponse('Post not found', 404));
+        }
+
+        if (postDoc.likes.includes(res.locals.userId)) {
+          return handle.createResponse(req, res, null, new ErrorResponse('Already liked post', 400));
+        }
+
+        postDoc.likes.push(res.locals.userId);
+
+        await postDoc.save();
+
+        return handle.createResponse(req, res, null, null);
+      } catch (error) {
+        console.error(error);
+        return handle.createResponse(req, res, null, new ErrorResponse('Unable to like post', 500));
+      }
+    })
+    route.mapper.delete('/:id/like', async (req, res) => {
+      try {
+        if (!req.params.id) {
+          return handle.createResponse(req, res, null, new ErrorResponse('Missing params id', 401));
+        }
+  
+        if (!isValidObjectId(req.params.id)) {
+          return handle.createResponse(req, res, null, new ErrorResponse('Invalid params id', 401));
+        }
+
+        const id = Types.ObjectId.createFromHexString(req.params.id);
+
+        const postDoc = await Post
+          .findById(id)
+          .select({ _id: 1, user: 1 ,content: 1, timestamp: 1, likes: 1, reposts: 1})
+          .populate('user', { _id: 1, username: 1 })
+          .exec();
+
+        if (!postDoc) {
+          return handle.createResponse(req, res, null, new ErrorResponse('Post not found', 404));
+        }
+
+        if (!postDoc.likes.includes(res.locals.userId)) {
+          return handle.createResponse(req, res, null, new ErrorResponse('Not liked post', 400));
+        }
+
+        postDoc.likes = postDoc.likes.filter((userId) => !userId == (res.locals.userId));
+
+        await postDoc.save();
+
+        return handle.createResponse(req, res, null, null);
+      } catch (error) {
+        console.error(error);
+        return handle.createResponse(req, res, null, new ErrorResponse('Unable to unlike post', 500));
+      }
+    })
+    
   })
 
   handle.initiateNotFoundRoute();

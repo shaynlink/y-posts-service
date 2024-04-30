@@ -1,5 +1,15 @@
 import mongoose, { Schema, Model } from 'mongoose'
 
+export interface IPost {
+  id: Schema.Types.ObjectId;
+  user: Schema.Types.ObjectId;
+  content: string;
+  image: string[];
+  timestamp: Date;
+  likes : Schema.Types.ObjectId[];
+  reposts: Schema.Types.ObjectId[];
+}
+
 export interface IUser {
   username: string;
   email: string;
@@ -8,10 +18,63 @@ export interface IUser {
   role: 'user' | 'admin';
 }
 
-export interface IFollowInjuction {
-  target: Schema.Types.ObjectId;
-  source: Schema.Types.ObjectId;
+export type PostModel = Model<IPost, {}, {}>;
+
+export const PostSchema = new Schema<IPost>({
+  user: {
+    type: Schema.Types.ObjectId,
+    required: true,
+    ref: 'Users'
+  },
+  content: {
+    type: String,
+    required: true,
+  },
+  image: {
+    type: [String],
+    required: false,
+  },
+  timestamp: {
+    type: Date,
+    required: true,
+    default: Date.now
+  },
+  likes: {
+    type: [Schema.Types.ObjectId],
+    required: false,
+    default: []
+  },
+  reposts: {
+    type: [Schema.Types.ObjectId],
+    required: false,
+    default: []
+  }
 }
+  , {
+  methods: {
+    like(target: Schema.Types.ObjectId) {
+      return this.updateOne({
+        $push: {
+          likes: target
+        }
+      })
+    },
+    unlike(target: Schema.Types.ObjectId) {
+      return this.updateOne({
+        $pull: {
+          likes: target
+        }
+      })
+    },
+    repost(target: Schema.Types.ObjectId) {
+      return this.updateOne({
+        $push: {
+          reposts: target
+        }
+      })
+    }
+  }
+})
 
 export type UserModel = Model<IUser, {}, {}>;
 
@@ -19,71 +82,24 @@ export const UserSchema = new Schema<IUser>({
   username: {
     type: String,
     required: true,
-    unique: true,
+    unique: true
   },
   email: {
     type: String,
-    required: [true, 'Email is required'],
-    unique: true,
-    validator: {
-      validate: (email: string) => {
-        return /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(email)
-      },
-      message: (props: any) => `${props.value} is not a valid email`
-    }
-  },
-  password: {
-    type: String,
-    required: [true, 'Password is required'],
-    validator: {
-      validate: (password: string) => {
-        return password.length >= 8 && password.length <= 64
-      },
-      message: () => `Is not a valid password`
-    }
+    required: true,
+    unique: true
   },
   picture: {
     type: String,
-    required: false,
+    required: false
+  },
+  password: {
+    type: String,
+    required: true
   },
   role: {
     type: String,
     required: true,
-    default: 'user',
-    enum: ['user', 'admin'],
-  },
-}, {
-  methods: {
-    follow(target: Schema.Types.ObjectId) {
-      const FollowInjuction = mongoose.model('FollowInjuctions');
-      return new FollowInjuction({
-        target: this._id,
-        source: target
-      }).save()
-    },
-    unfollow(target: Schema.Types.ObjectId) {
-      const FollowInjuction = mongoose.model('FollowInjuctions');
-      return FollowInjuction.deleteOne({
-        target: target,
-        source: this._id
-      })
-    }
-  
+    default: 'user'
   }
-})
-
-
-export type FollowInjuctionModel = Model<IFollowInjuction, {}, {}>;
-
-export const FollowInjuctionSchema = new Schema<IFollowInjuction>({
-  target: {
-    type: Schema.Types.ObjectId,
-    required: true,
-    ref: 'Users'
-  },
-  source: {
-    type: Schema.Types.ObjectId,
-    required: true,
-    ref: 'Users'
-  },
 })
