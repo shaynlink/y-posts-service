@@ -466,7 +466,12 @@ export function setUpHandle(handle: HTTPHandle) {
       .get(async (req, res) => {
         try {
           if (!req.query.id) {
-            return handle.createResponse(req, res, null, new ErrorResponse('Missing query id', 401));
+            const feeds = await Feed
+              .find({ userId: res.locals.userId })
+              .select({ _id: 1, name: 1, fromIds: 1 })
+              .exec();
+            
+            return handle.createResponse(req, res, feeds, null);
           }
           if (!req.query.page) {
             return handle.createResponse(req, res, null, new ErrorResponse('Missing query page', 401));
@@ -711,13 +716,60 @@ export function setUpHandle(handle: HTTPHandle) {
               username: 1,
               picture: 1
             })
+            .populate({
+              path: 'ref',
+              select: {
+                _id: 1,
+                user: 1,
+                content: 1,
+                images: 1,
+                timestamp: 1,
+                likes: 1,
+                reposts: 1
+              },
+              // This function is working but populate function not allow to use async function
+              // transform: async (doc, id) => {
+              //   const repostsCount = await Post
+              //     .find({ ref: id })
+              //     .countDocuments();
+              //   console.log('Reposts count:', repostsCount, doc, id);
+              //   return {
+              //     ...doc.toObject(),
+              //     reposts: repostsCount
+              //   }
+              // },
+              populate: {
+                path: 'user',
+                select: {
+                  _id: 1,
+                  username: 1,
+                  picture: 1
+                }
+              }
+            })
             .exec();
 
-            if (!postDoc) {
-              return handle.createResponse(req, res, null, new ErrorResponse('Post not found', 404));
-            }
+          if (!postDoc) {
+            return handle.createResponse(req, res, null, new ErrorResponse('Post not found', 404));
+          }
 
-            return handle.createResponse(req, res, postDoc, null);
+          let repostsCount = await Post
+            .find({ ref: id })
+            .countDocuments();
+
+          const post = {
+            ...postDoc?.toObject(),
+            reposts: repostsCount
+          }
+
+          if (post.ref && (post.ref as any)?.timestamp) {
+            repostsCount = await Post
+              .find({ ref: post.ref._id })
+              .countDocuments();
+            (post.ref as any).reposts = repostsCount;
+          }
+
+          return handle.createResponse(req, res, post, null);
         } catch (err) {
           console.error(err);
 
