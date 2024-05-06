@@ -213,7 +213,7 @@ export function setUpHandle(handle: HTTPHandle) {
 
               const fileName = `${discriminator}.${ext}`;
 
-              const blob = bucket.file(`posts/${res.locals.userId}/${fileName}`);
+              const blob = bucket.file(`posts/${postData._id}/${fileName}`);
               const blobStream = blob.createWriteStream();
 
               await new Promise((resolve, reject) => {
@@ -332,7 +332,7 @@ export function setUpHandle(handle: HTTPHandle) {
 
             const fileName = `${discriminator}.${ext}`;
 
-            const blob = bucket.file(`posts/${res.locals.userId}/${fileName}`);
+            const blob = bucket.file(`posts/${repostData._id}/${fileName}`);
             const blobStream = blob.createWriteStream();
 
             await new Promise((resolve, reject) => {
