@@ -1,7 +1,13 @@
 import 'dotenv/config'
 import Core from 'codebase'
 import { setUpHandle } from './handle';
-import { IPost, IUser, PostModel, PostSchema, UserModel, UserSchema } from './shemas';
+import { FollowInjuctionSchema, PostSchema, UserSchema, FeedSchema } from './schemas';
+import type {
+  PostSchema as IPostSchema,
+  UserSchema as IUserSchema,
+  FollowInjuctionSchema as IFollowInjuctionSchema,
+  FeedSchema as IFeedSchema
+} from './schema';
 
 
 const CERTIFICATE_KEY = 'DB_CERTIFICATE';
@@ -23,13 +29,17 @@ async function bootstrap() {
 
   const client = await core.DBService.createClient();
 
-  const Post = client.model<IPost, PostModel>('Posts', PostSchema);
-  const User = client.model<IUser, UserModel>('Users', UserSchema);
+  const Post = client.model<IPostSchema>('Posts', PostSchema);
+  const User = client.model<IUserSchema>('Users', UserSchema);
+  const FollowInjuction = client.model<IFollowInjuctionSchema>('FollowInjuctions', FollowInjuctionSchema);
+  const Feed = client.model<IFeedSchema>('Feeds', FeedSchema);
 
   const handle = core.HTTPService.handle;
   handle.app.locals.schema = {
-    Post: Post,
-    User: User
+    Post,
+    User,
+    FollowInjuction,
+    Feed,
   }
 
   setUpHandle(handle);
