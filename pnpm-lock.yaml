@@ -22,13 +22,13 @@ importers:
         version: 1.1.0
       codebase:
         specifier: github:shaynlink/y-backend-codebase
-        version: https://codeload.github.com/shaynlink/y-backend-codebase/tar.gz/5188c39f0eafb8264293d372ad2024d7540121a4(gcp-metadata@6.1.0)(typescript@5.4.5)
+        version: https://codeload.github.com/shaynlink/y-backend-codebase/tar.gz/5188c39f0eafb8264293d372ad2024d7540121a4(typescript@5.4.5)
       dotenv:
         specifier: ^16.4.5
         version: 16.4.5
       mongoose:
         specifier: ^8.3.2
-        version: 8.3.2(gcp-metadata@6.1.0)
+        version: 8.3.2
       multer:
         specifier: 1.4.5-lts.1
         version: 1.4.5-lts.1
@@ -40,7 +40,7 @@ importers:
         version: 9.0.1
       y-types:
         specifier: github:shaynlink/y-types
-        version: https://codeload.github.com/shaynlink/y-types/tar.gz/d7406eeead7d708015866b465d622cce9cdd6a00(gcp-metadata@6.1.0)
+        version: https://codeload.github.com/shaynlink/y-types/tar.gz/d7406eeead7d708015866b465d622cce9cdd6a00
     devDependencies:
       '@types/bcrypt':
         specifier: ^5.0.2
@@ -2236,7 +2236,7 @@ snapshots:
       strip-ansi: 6.0.1
       wrap-ansi: 7.0.0
 
-  codebase@https://codeload.github.com/shaynlink/y-backend-codebase/tar.gz/5188c39f0eafb8264293d372ad2024d7540121a4(gcp-metadata@6.1.0)(typescript@5.4.5):
+  codebase@https://codeload.github.com/shaynlink/y-backend-codebase/tar.gz/5188c39f0eafb8264293d372ad2024d7540121a4(typescript@5.4.5):
     dependencies:
       '@google-cloud/secret-manager': 5.5.0
       checkeasy: 1.1.0
@@ -2246,12 +2246,12 @@ snapshots:
       express: 4.19.2
       google-gax: 4.3.3
       helmet: 7.1.0
-      mongodb: 6.5.0(gcp-metadata@6.1.0)
-      mongoose: 8.3.2(gcp-metadata@6.1.0)
+      mongodb: 6.5.0
+      mongoose: 8.3.2
       rate-limiter-flexible: 5.0.3
       sinon: 17.0.1
       tsup: 8.0.2(typescript@5.4.5)
-      y-types: https://codeload.github.com/shaynlink/y-types/tar.gz/d7406eeead7d708015866b465d622cce9cdd6a00(gcp-metadata@6.1.0)
+      y-types: https://codeload.github.com/shaynlink/y-types/tar.gz/d7406eeead7d708015866b465d622cce9cdd6a00
     transitivePeerDependencies:
       - '@aws-sdk/credential-providers'
       - '@microsoft/api-extractor'
@@ -2845,19 +2845,17 @@ snapshots:
       '@types/whatwg-url': 11.0.4
       whatwg-url: 13.0.0
 
-  mongodb@6.5.0(gcp-metadata@6.1.0):
+  mongodb@6.5.0:
     dependencies:
       '@mongodb-js/saslprep': 1.1.5
       bson: 6.6.0
       mongodb-connection-string-url: 3.0.0
-    optionalDependencies:
-      gcp-metadata: 6.1.0
 
-  mongoose@8.3.2(gcp-metadata@6.1.0):
+  mongoose@8.3.2:
     dependencies:
       bson: 6.6.0
       kareem: 2.6.3
-      mongodb: 6.5.0(gcp-metadata@6.1.0)
+      mongodb: 6.5.0
       mpath: 0.9.0
       mquery: 5.0.0
       ms: 2.1.3
@@ -3386,9 +3384,9 @@ snapshots:
 
   xtend@4.0.2: {}
 
-  y-types@https://codeload.github.com/shaynlink/y-types/tar.gz/d7406eeead7d708015866b465d622cce9cdd6a00(gcp-metadata@6.1.0):
+  y-types@https://codeload.github.com/shaynlink/y-types/tar.gz/d7406eeead7d708015866b465d622cce9cdd6a00:
     dependencies:
-      mongodb: 6.5.0(gcp-metadata@6.1.0)
+      mongodb: 6.5.0
     transitivePeerDependencies:
       - '@aws-sdk/credential-providers'
       - '@mongodb-js/zstd'
