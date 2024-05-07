@@ -129,121 +129,153 @@ export function setUpHandle(handle: HTTPHandle) {
 
     const bucket = storage.bucket(process.env.GCLOUD_STORAGE_BUCKET);
 
-    route.mapper.post(
-      '/',
-      uploadHandler.array('images', 4),
-      async (req, res) => {
+    route.mapper.route('/')
+      .get(async (req, res) => {
         try {
-          if (!req.body.content) {
-            return handle.createResponse(req, res, null, new ErrorResponse('Missing body content', 401));
+          const posts = await Post
+            .find({ user: res.locals.userId })
+            .sort({ timestamp: -1 })
+            .select({
+              _id: 1,
+              user: 1,
+              content: 1,
+              images: 1,
+              timestamp: 1,
+              likes: 1,
+              reposts: 1,
+              ref: 1
+            })
+            .populate('user', {
+              _id: 1,
+              username: 1,
+              picture: 1
+            })
+            .exec();
+
+          if (!posts) {
+            return handle.createResponse(req, res, null, new ErrorResponse('Posts not found', 404));
           }
 
-          if (!req.body.content && !req.body.ref) {
-            return handle.createResponse(req, res, null, new ErrorResponse('Content and Ref missing'));
-          }
-
-          if (req.body.content && req.body.content.length > 255) {
-            return handle.createResponse(req, res, null, new ErrorResponse('Content is longer than 255 character'));
-          }
-
-          const postData: PostInterface & { _id: Types.ObjectId } = {
-            _id: new Types.ObjectId(),
-            user: res.locals.userId,
-            content: null,
-            ref: null,
-            timestamp: new Date(),
-            likes: [],
-            images: []
-          };
-
-          if (req.body.ref) {
-            if (!isValidObjectId(req.body.ref)) {
-              return handle.createResponse(req, res, null, new ErrorResponse('Invalid ref Id', 400));
-            }
-            postData.ref = Types.ObjectId.createFromHexString(req.body.ref);
-
-            const exist = await Post
-              .findById(postData.ref)
-              .countDocuments()
-              .exec();
-
-            if (exist < 1) {
-              return handle.createResponse(req, res, null, new ErrorResponse('Reference post not exist', 404));
-            }
-          }
-
-          if (req.body.content) {
-            postData.content = req.body.content;
-          }
-
-          if (req.files && req.files.length as number > 0) {
-            const files = req.files as Array<{
-              fieldname: string;
-              originalname: string;
-              encoding: string;
-              mimetype: string;
-              buffer: Buffer;
-              size: number;
-            }>
-
-            console.log('Uploading %s images ...', files.length);
-            for (const file of files) {
-              const discriminator = v4();
-
-              let ext = file.originalname.split('.').pop();
-
-              if (!ext) {
-                switch (file.mimetype) {
-                  case 'image/jpeg':
-                    ext = 'jpeg';
-                    break;
-                  case 'image/png':
-                    ext = 'png';
-                    break;
-                  case 'image/gif':
-                    ext = 'gif';
-                    break;
-                  case 'image/webp':
-                    ext = 'webp';
-                    break;
-                  default:
-                    return handle.createResponse(req, res, null, new ErrorResponse('Unsupported file type', 400));
-                }
-              }
-
-              const fileName = `${discriminator}.${ext}`;
-
-              const blob = bucket.file(`posts/${postData._id}/${fileName}`);
-              const blobStream = blob.createWriteStream();
-
-              await new Promise((resolve, reject) => {
-                console.log('Uploading image ...');
-                blobStream.on('error', (error) => {
-                  reject(error);
-                });
-
-                blobStream.on('finish', async () => {
-                  postData.images.push(fileName);
-                  console.log('Upload image success');
-                  resolve(void 0);
-                });
-
-                blobStream.end(file.buffer);
-              })
-            }
-          }
-
-          console.log('All image uploaded');
-
-          const post = new Post(postData);
-
-          await post.save();
-
-          return handle.createResponse(req, res, post, null);
+          return handle.createResponse(req, res, posts, null);
         } catch (error) {
           console.error(error);
-          return handle.createResponse(req, res, null, new ErrorResponse('Unable to create post', 500));
+          return handle.createResponse(req, res, null, new ErrorResponse('Unable to get posts', 500));
         }
+      })
+      .post(
+        uploadHandler.array('images', 4),
+        async (req, res) => {
+          try {
+            if (!req.body.content) {
+              return handle.createResponse(req, res, null, new ErrorResponse('Missing body content', 401));
+            }
+
+            if (!req.body.content && !req.body.ref) {
+              return handle.createResponse(req, res, null, new ErrorResponse('Content and Ref missing'));
+            }
+
+            if (req.body.content && req.body.content.length > 255) {
+              return handle.createResponse(req, res, null, new ErrorResponse('Content is longer than 255 character'));
+            }
+
+            const postData: PostInterface & { _id: Types.ObjectId } = {
+              _id: new Types.ObjectId(),
+              user: res.locals.userId,
+              content: null,
+              ref: null,
+              timestamp: new Date(),
+              likes: [],
+              images: []
+            };
+
+            if (req.body.ref) {
+              if (!isValidObjectId(req.body.ref)) {
+                return handle.createResponse(req, res, null, new ErrorResponse('Invalid ref Id', 400));
+              }
+              postData.ref = Types.ObjectId.createFromHexString(req.body.ref);
+
+              const exist = await Post
+                .findById(postData.ref)
+                .countDocuments()
+                .exec();
+
+              if (exist < 1) {
+                return handle.createResponse(req, res, null, new ErrorResponse('Reference post not exist', 404));
+              }
+            }
+
+            if (req.body.content) {
+              postData.content = req.body.content;
+            }
+
+            if (req.files && req.files.length as number > 0) {
+              const files = req.files as Array<{
+                fieldname: string;
+                originalname: string;
+                encoding: string;
+                mimetype: string;
+                buffer: Buffer;
+                size: number;
+              }>
+
+              console.log('Uploading %s images ...', files.length);
+              for (const file of files) {
+                const discriminator = v4();
+
+                let ext = file.originalname.split('.').pop();
+
+                if (!ext) {
+                  switch (file.mimetype) {
+                    case 'image/jpeg':
+                      ext = 'jpeg';
+                      break;
+                    case 'image/png':
+                      ext = 'png';
+                      break;
+                    case 'image/gif':
+                      ext = 'gif';
+                      break;
+                    case 'image/webp':
+                      ext = 'webp';
+                      break;
+                    default:
+                      return handle.createResponse(req, res, null, new ErrorResponse('Unsupported file type', 400));
+                  }
+                }
+
+                const fileName = `${discriminator}.${ext}`;
+
+                const blob = bucket.file(`posts/${postData._id}/${fileName}`);
+                const blobStream = blob.createWriteStream();
+
+                await new Promise((resolve, reject) => {
+                  console.log('Uploading image ...');
+                  blobStream.on('error', (error) => {
+                    reject(error);
+                  });
+
+                  blobStream.on('finish', async () => {
+                    postData.images.push(fileName);
+                    console.log('Upload image success');
+                    resolve(void 0);
+                  });
+
+                  blobStream.end(file.buffer);
+                })
+              }
+            }
+
+            console.log('All image uploaded');
+
+            const post = new Post(postData);
+
+            await post.save();
+
+            return handle.createResponse(req, res, post, null);
+          } catch (error) {
+            console.error(error);
+            return handle.createResponse(req, res, null, new ErrorResponse('Unable to create post', 500));
+          }
       })
 
     route.mapper.post(
